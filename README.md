@@ -71,7 +71,3 @@ Major development stages include:
 8. Server disconnect detection
 9. Reconnect functionality
 10. User interface improvements
-
-## Note
-
-The Native PHP API/backend is maintained separately and is not included in this repository.
