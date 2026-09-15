@@ -18,25 +18,25 @@ class _LiquidBackground extends StatelessWidget {
     return IgnorePointer(
       child: Stack(
         children: [
-      Container(
-      decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: darkMode
-            ? [
-          Color(0xFF070912),
-          Color(0xFF0A0D18),
-          Color(0xFF11152A),
-        ]
-            : [
-          Color(0xFFEAF0FF),
-          Color(0xFFF5F7FC),
-          Color(0xFFE7ECF8),
-        ],
-      ),
-    ),
-    ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: darkMode
+                    ? [
+                  Color(0xFF070912),
+                  Color(0xFF0A0D18),
+                  Color(0xFF11152A),
+                ]
+                    : [
+                  Color(0xFFEAF0FF),
+                  Color(0xFFF5F7FC),
+                  Color(0xFFE7ECF8),
+                ],
+              ),
+            ),
+          ),
           _glow(-120, -100, 320, const Color(0xFF6878FF)),
           _glow(300, -170, 310, const Color(0xFF754FFF)),
           _glow(-180, -100, 350, const Color(0xFF386BFF)),
@@ -1382,27 +1382,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Theme(
       data: theme,
-      child: GlassPage(
+      child: GlassScaffold(
         background: _LiquidBackground(darkMode: _darkMode),
-        child: Scaffold(
-          extendBody: true,
-          backgroundColor: Colors.transparent,
-          body: IndexedStack(
-            index: _selectedTab,
-            children: [
-              _buildHomeContent(),
-              SettingsScreen(
-                apiService: widget.apiService,
-                autoRefresh: _autoRefresh,
-                darkMode: _darkMode,
-                onAutoRefreshChanged: _setAutoRefresh,
-                onDarkModeChanged: _setDarkMode,
-                onTestConnection: widget.apiService.checkConnection,
-              ),
-            ],
-          ),
-          bottomNavigationBar: _buildBottomNavigationBar(),
+        body: IndexedStack(
+          index: _selectedTab,
+          children: [
+            _buildHomeContent(),
+            SettingsScreen(
+              apiService: widget.apiService,
+              autoRefresh: _autoRefresh,
+              darkMode: _darkMode,
+              onAutoRefreshChanged: _setAutoRefresh,
+              onDarkModeChanged: _setDarkMode,
+              onTestConnection: widget.apiService.checkConnection,
+            ),
+          ],
         ),
+        bottomBar: _buildBottomNavigationBar(),
       ),
     );
   }
@@ -1613,30 +1609,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
-    return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(18, 0, 18, 14),
-      child: GlassTabBar.bottom(
-        selectedIndex: _selectedTab,
-        onTabSelected: (index) {
-          setState(() {
-            _selectedTab = index;
-          });
-        },
-        tabs: const [
-          GlassTab(
-            icon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          GlassTab(
-            icon: Icon(Icons.settings_rounded),
-            label: 'Settings',
-          ),
-        ],
-        selectedIconColor: Color(0xFFB2BAFF),
-        selectedLabelColor: Colors.white,
-        unselectedIconColor: Colors.white,
-        unselectedLabelColor: Colors.white54,
-      ),
+    return GlassTabBar.bottom(
+      selectedIndex: _selectedTab,
+      onTabSelected: (index) {
+        setState(() {
+          _selectedTab = index;
+        });
+      },
+      tabs: const [
+        GlassTab(
+          icon: Icon(Icons.home_rounded),
+          label: 'Home',
+        ),
+        GlassTab(
+          icon: Icon(Icons.settings_rounded),
+          label: 'Settings',
+        ),
+      ],
+      selectedIconColor: const Color(0xFFB2BAFF),
+      selectedLabelColor: Colors.white,
+      unselectedIconColor: Colors.white,
+      unselectedLabelColor: Colors.white54,
     );
   }
 
