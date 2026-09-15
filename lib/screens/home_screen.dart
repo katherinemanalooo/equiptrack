@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../models/equipment.dart';
 import '../services/api_service.dart';
@@ -1209,271 +1209,241 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final equipment = _filteredEquipment;
 
-    return Scaffold(
-      extendBody: true,
-      backgroundColor: const Color(0xFF070910),
-      body: Stack(
-        children: [
-          const _LiquidBackground(),
-          SafeArea(
-            child: RefreshIndicator(
-              color: const Color(0xFF8B7CFF),
-              backgroundColor: const Color(0xFF171A29),
-              onRefresh: _loadEquipment,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 12),
-                    sliver: SliverToBoxAdapter(
+    return GlassPage(
+      background: const _LiquidBackground(),
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: RefreshIndicator(
+            color: const Color(0xFF8B7CFF),
+            backgroundColor: const Color(0xFF171A29),
+            onRefresh: _loadEquipment,
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 12),
+                  sliver: SliverToBoxAdapter(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    const LinearGradient(
+                                      colors: [
+                                        Colors.white,
+                                        Color(0xFF9EACFF),
+                                        Color(0xFFB58CFF),
+                                      ],
+                                    ).createShader(bounds),
+                                child: const Text(
+                                  'EquipTrack',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 27,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1.1,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Campus Equipment Management',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.48),
+                                  letterSpacing: 0.15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _glassIconButton(
+                          icon: Icons.inventory_2_rounded,
+                          onPressed: _loadEquipment,
+                          size: 48,
+                          iconSize: 21,
+                          accent: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 10, 22, 16),
+                  sliver: SliverToBoxAdapter(
+                    child: _glassPanel(
+                      padding: EdgeInsets.zero,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() => _searchQuery = value);
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Search equipment...',
+                          hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.38),
+                            fontSize: 12,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: Colors.white.withValues(alpha: 0.62),
+                            size: 20,
+                          ),
+                          suffixIcon: Icon(
+                            Icons.tune_rounded,
+                            color: Colors.white.withValues(alpha: 0.35),
+                            size: 18,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  sliver: SliverToBoxAdapter(
+                    child: _glassPanel(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 17,
+                        horizontal: 8,
+                      ),
                       child: Row(
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ShaderMask(
-                                  shaderCallback: (bounds) =>
-                                      const LinearGradient(
-                                        colors: [
-                                          Colors.white,
-                                          Color(0xFF9EACFF),
-                                          Color(0xFFB58CFF),
-                                        ],
-                                      ).createShader(bounds),
-                                  child: const Text(
-                                    'EquipTrack',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 27,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -1.1,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  'Campus Equipment Management',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white.withValues(alpha: 0.48),
-                                    letterSpacing: 0.15,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          _glassStat(
+                            Icons.inventory_2_outlined,
+                            _totalQuantity.toString(),
+                            'Total',
+                            const Color(0xFF8290FF),
                           ),
-                          _glassIconButton(
-                            icon: Icons.inventory_2_rounded,
-                            onPressed: _loadEquipment,
-                            size: 48,
-                            iconSize: 21,
-                            accent: true,
+                          _glassStatDivider(),
+                          _glassStat(
+                            Icons.check_circle_outline_rounded,
+                            _availableCount.toString(),
+                            'Available',
+                            const Color(0xFF35D7A0),
+                          ),
+                          _glassStatDivider(),
+                          _glassStat(
+                            Icons.schedule_rounded,
+                            _borrowedCount.toString(),
+                            'Borrowed',
+                            const Color(0xFFFFB938),
                           ),
                         ],
                       ),
                     ),
                   ),
+                ),
 
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(22, 10, 22, 16),
-                    sliver: SliverToBoxAdapter(
-                      child: _glassPanel(
-                        borderRadius: 17,
-                        padding: EdgeInsets.zero,
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (value) {
-                            setState(() => _searchQuery = value);
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Search equipment...',
-                            hintStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.38),
-                              fontSize: 12,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: Colors.white.withValues(alpha: 0.62),
-                              size: 20,
-                            ),
-                            suffixIcon: Icon(
-                              Icons.tune_rounded,
-                              color: Colors.white.withValues(alpha: 0.35),
-                              size: 18,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 4,
-                            ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(22, 28, 22, 13),
+                  sliver: SliverToBoxAdapter(
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Equipment',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
                           ),
                         ),
-                      ),
+                        const Spacer(),
+                        Text(
+                          '${equipment.length} items',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.40),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
-                    sliver: SliverToBoxAdapter(
-                      child: _glassPanel(
-                        borderRadius: 22,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 17,
-                          horizontal: 8,
-                        ),
-                        child: Row(
+                if (_isLoading)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_errorMessage != null)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(30),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            _glassStat(
-                              Icons.inventory_2_outlined,
-                              _totalQuantity.toString(),
-                              'Total',
-                              const Color(0xFF8290FF),
+                            Icon(
+                              Icons.cloud_off_rounded,
+                              size: 48,
+                              color: Colors.white.withValues(alpha: 0.35),
                             ),
-                            _glassStatDivider(),
-                            _glassStat(
-                              Icons.check_circle_outline_rounded,
-                              _availableCount.toString(),
-                              'Available',
-                              const Color(0xFF35D7A0),
+                            const SizedBox(height: 16),
+                            Text(
+                              _errorMessage!,
+                              textAlign: TextAlign.center,
                             ),
-                            _glassStatDivider(),
-                            _glassStat(
-                              Icons.schedule_rounded,
-                              _borrowedCount.toString(),
-                              'Borrowed',
-                              const Color(0xFFFFB938),
+                            const SizedBox(height: 18),
+                            FilledButton.icon(
+                              onPressed: _loadEquipment,
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text('Retry'),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(22, 28, 22, 13),
-                    sliver: SliverToBoxAdapter(
-                      child: Row(
-                        children: [
-                          const Text(
-                            'Equipment',
-                            style: TextStyle(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${equipment.length} items',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.white.withValues(alpha: 0.40),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  if (_isLoading)
+                  )
+                else if (equipment.isEmpty)
                     const SliverFillRemaining(
                       hasScrollBody: false,
-                      child: Center(child: CircularProgressIndicator()),
+                      child: Center(child: Text('No equipment found')),
                     )
-                  else if (_errorMessage != null)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(30),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.cloud_off_rounded,
-                                size: 48,
-                                color: Colors.white.withValues(alpha: 0.35),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _errorMessage!,
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 18),
-                              FilledButton.icon(
-                                onPressed: _loadEquipment,
-                                icon: const Icon(Icons.refresh_rounded),
-                                label: const Text('Retry'),
-                              ),
-                            ],
-                          ),
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 22),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                              (context, index) => _equipmentCard(equipment[index]),
+                          childCount: equipment.length,
                         ),
                       ),
-                    )
-                  else if (equipment.isEmpty)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(child: Text('No equipment found')),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: 22),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                                (context, index) => _equipmentCard(equipment[index]),
-                            childCount: equipment.length,
-                          ),
-                        ),
-                      ),
+                    ),
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 112)),
-                ],
-              ),
+                const SliverToBoxAdapter(child: SizedBox(height: 112)),
+              ],
             ),
           ),
-        ],
+        ),
       ),
       floatingActionButton: _glassAddButton(),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    ),
     );
   }
 
   Widget _glassPanel({
     required Widget child,
     EdgeInsetsGeometry padding = const EdgeInsets.all(16),
-    double borderRadius = 22,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0x3AFFFFFF),
-                Color(0x141A1F3D),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.13),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF6D63FF).withValues(alpha: 0.08),
-                blurRadius: 24,
-                spreadRadius: -8,
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
+    return GlassCard(
+      padding: padding,
+      quality: GlassQuality.standard,
+      child: child,
     );
   }
 
@@ -1484,40 +1454,17 @@ class _HomeScreenState extends State<HomeScreen> {
     required double iconSize,
     bool accent = false,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(size / 2),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(size / 2),
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: accent
-                    ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF7282FF),
-                    Color(0xFF654BDE),
-                  ],
-                )
-                    : null,
-                color: accent ? null : const Color(0x22FFFFFF),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.16),
-                ),
-              ),
-              child: Icon(icon, size: iconSize, color: Colors.white),
-            ),
-          ),
-        ),
+    return GlassIconButton(
+      icon: Icon(
+        icon,
+        size: iconSize,
+        color: Colors.white,
       ),
+      onPressed: onPressed,
+      size: size,
+      iconSize: iconSize,
+      glowColor: accent ? const Color(0xFF7C8CFF) : null,
+      glowRadius: accent ? 26 : 20,
     );
   }
 
@@ -1571,60 +1518,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _glassAddButton() {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(19),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _showAddEquipment,
-                borderRadius: BorderRadius.circular(19),
-                child: Container(
-                  height: 54,
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Color(0xFF4C6FFF),
-                        Color(0xFF704FEA),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(19),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.22),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6675FF).withValues(alpha: 0.30),
-                        blurRadius: 28,
-                        spreadRadius: -8,
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_rounded, size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        'Add Equipment',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
+      child: SizedBox(
+        height: 54,
+        child: GlassButton(
+          onTap: _showAddEquipment,
+          icon: const Icon(Icons.add_rounded, size: 22, color: Colors.white),
+          label: 'Add Equipment',
+          style: GlassButtonStyle.prominent,
         ),
       ),
     );
@@ -1638,7 +1538,6 @@ class _HomeScreenState extends State<HomeScreen> {
       child: GestureDetector(
         onTap: () => _showEditEquipment(item),
         child: _glassPanel(
-          borderRadius: 20,
           padding: const EdgeInsets.all(13),
           child: Row(
             children: [
@@ -1787,22 +1686,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    width: 31,
-                    height: 31,
-                    child: Material(
-                      color: const Color(0x1FFFFFFF),
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        onTap: () => _confirmDelete(item),
-                        borderRadius: BorderRadius.circular(10),
-                        child: Icon(
-                          Icons.delete_outline_rounded,
-                          size: 16,
-                          color: Colors.white.withValues(alpha: 0.72),
-                        ),
-                      ),
+                  GlassIconButton(
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.78),
                     ),
+                    onPressed: () => _confirmDelete(item),
+                    size: 32,
+                    iconSize: 16,
+                    shape: GlassIconButtonShape.roundedSquare,
+                    borderRadius: 10,
+                    glowColor: Colors.redAccent,
+                    glowRadius: 18,
                   ),
                 ],
               ),
@@ -1812,5 +1708,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
 }
