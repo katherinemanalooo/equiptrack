@@ -55,6 +55,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Color get _primaryTextColor =>
+      widget.darkMode ? Colors.white : const Color(0xFF171A24);
+
+  Color get _secondaryTextColor =>
+      widget.darkMode
+          ? Colors.white.withValues(alpha: 0.55)
+          : const Color(0xFF697386);
+
+  Color get _mutedTextColor =>
+      widget.darkMode
+          ? Colors.white.withValues(alpha: 0.38)
+          : const Color(0xFF8992A4);
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -62,12 +75,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
         children: [
-          const Text(
+          Text(
             'Settings',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.8,
+              color: _primaryTextColor,
             ),
           ),
           const SizedBox(height: 4),
@@ -75,7 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'Customize your EquipTrack experience.',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.45),
+              color: _secondaryTextColor,
             ),
           ),
           const SizedBox(height: 24),
@@ -151,9 +165,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : _connected!
                         ? 'Connected to PHP API'
                         : 'Server unreachable',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
+                      color: _primaryTextColor,
                     ),
                   ),
                 ],
@@ -163,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 widget.apiService.apiUrl,
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.40),
+                  color: _mutedTextColor,
                 ),
               ),
               const SizedBox(height: 14),
@@ -193,9 +208,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(width: 8),
                       Text(
                         _testing ? 'Testing Connection...' : 'Test Connection',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
+                          color: _primaryTextColor,
                         ),
                       ),
                     ],
@@ -223,7 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       height: 1.45,
-                      color: Colors.white.withValues(alpha: 0.55),
+                      color: _secondaryTextColor,
                     ),
                   ),
                 ),
@@ -267,9 +283,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 10),
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
+                  color: _primaryTextColor,
                 ),
               ),
             ],
@@ -293,7 +310,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Icon(
           icon,
           size: 21,
-          color: Colors.white.withValues(alpha: 0.68),
+          color: _secondaryTextColor,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -313,7 +330,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 style: TextStyle(
                   fontSize: 10,
                   height: 1.35,
-                  color: Colors.white.withValues(alpha: 0.38),
+                  color: _mutedTextColor,
                 ),
               ),
             ],

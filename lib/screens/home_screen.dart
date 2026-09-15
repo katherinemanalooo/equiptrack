@@ -1,85 +1,71 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../models/equipment.dart';
 import '../services/api_service.dart';
-
+import 'settings_screen.dart';
 
 class _LiquidBackground extends StatelessWidget {
-  const _LiquidBackground();
+  final bool darkMode;
+
+  const _LiquidBackground({required this.darkMode});
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: Stack(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF090A12),
-                  Color(0xFF060810),
-                  Color(0xFF0A0C18),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: -110,
-            right: -120,
-            child: Container(
-              width: 310,
-              height: 310,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF596BFF).withValues(alpha: 0.22),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 300,
-            left: -150,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF734DFF).withValues(alpha: 0.12),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -170,
-            right: -80,
-            child: Container(
-              width: 340,
-              height: 340,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF386BFF).withValues(alpha: 0.13),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
+      Container(
+      decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: darkMode
+            ? [
+          Color(0xFF070912),
+          Color(0xFF0A0D18),
+          Color(0xFF11152A),
+        ]
+            : [
+          Color(0xFFEAF0FF),
+          Color(0xFFF5F7FC),
+          Color(0xFFE7ECF8),
         ],
+      ),
+    ),
+    ),
+          _glow(-120, -100, 320, const Color(0xFF6878FF)),
+          _glow(300, -170, 310, const Color(0xFF754FFF)),
+          _glow(-180, -100, 350, const Color(0xFF386BFF)),
+        ],
+      ),
+    );
+  }
+
+  Widget _glow(
+      double top,
+      double left,
+      double size,
+      Color color,
+      ) {
+    return Positioned(
+      top: top,
+      left: left,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              color.withValues(alpha: darkMode ? 0.20 : 0.10),
+              Colors.transparent,
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -94,126 +80,44 @@ class HomeScreen extends StatefulWidget {
   });
 
   @override
-  State<HomeScreen> createState() =>
-      _HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final TextEditingController _searchController =
-  TextEditingController();
+  final _searchController = TextEditingController();
 
   List<Equipment> _equipment = [];
-
   bool _isLoading = true;
   bool _isCreating = false;
   String? _errorMessage;
   String _searchQuery = '';
 
+  int _selectedTab = 0;
+  bool _autoRefresh = true;
+  bool _darkMode = true;
+
   Timer? _serverCheckTimer;
   bool _isDisconnectDialogShowing = false;
+
+  static const _categories = [
+    'Multimedia',
+    'Audio Equipment',
+    'Computer',
+    'Cable',
+    'Other',
+  ];
+
+  static const _statuses = [
+    'Available',
+    'Borrowed',
+    'Maintenance',
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadEquipment();
-    _serverCheckTimer = Timer.periodic(
-      const Duration(seconds: 5),
-          (_) => _checkServerConnection(),
-    );
-  }
-  Future<void> _checkServerConnection() async {
-    if (_isDisconnectDialogShowing) {
-      return;
-    }
-
-    final connected =
-    await widget.apiService.checkConnection();
-
-    if (!mounted || connected) {
-      return;
-    }
-
-    _showServerDisconnectedDialog();
-  }
-
-  void _showServerDisconnectedDialog() {
-    if (_isDisconnectDialogShowing || !mounted) {
-      return;
-    }
-
-    _isDisconnectDialogShowing = true;
-
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        bool isReconnecting = false;
-
-        return StatefulBuilder(
-          builder: (dialogBuildContext, setDialogState) {
-            return AlertDialog(
-              title: const Text('Server Disconnected'),
-              content: const Text(
-                'The EquipTrack server cannot be reached. '
-                    'Please make sure the PHP server is running '
-                    'and try reconnecting.',
-              ),
-              actions: [
-                FilledButton.icon(
-                  onPressed: isReconnecting
-                      ? null
-                      : () async {
-                    setDialogState(() {
-                      isReconnecting = true;
-                    });
-
-                    final connected = await widget.apiService
-                        .checkConnection();
-
-                    if (!dialogContext.mounted) {
-                      return;
-                    }
-
-                    if (connected) {
-                      _isDisconnectDialogShowing = false;
-                      Navigator.of(dialogContext).pop();
-                      await _loadEquipment();
-                    } else {
-                      setDialogState(() {
-                        isReconnecting = false;
-                      });
-
-                      ScaffoldMessenger.of(dialogBuildContext)
-                          .showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Server is still unreachable.',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  icon: isReconnecting
-                      ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                      : const Icon(Icons.refresh_rounded),
-                  label: Text(
-                    isReconnecting ? 'Reconnecting...' : 'Reconnect',
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    ).then((_) {
-      _isDisconnectDialogShowing = false;
-    });
+    _startServerCheckTimer();
   }
 
   @override
@@ -223,16 +127,176 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  void _startServerCheckTimer() {
+    _serverCheckTimer?.cancel();
+
+    if (!_autoRefresh) return;
+
+    _serverCheckTimer = Timer.periodic(
+      const Duration(seconds: 5),
+          (_) => _checkServerConnection(),
+    );
+  }
+
+  void _setAutoRefresh(bool value) {
+    setState(() => _autoRefresh = value);
+    _startServerCheckTimer();
+  }
+
+  void _setDarkMode(bool value) {
+    setState(() => _darkMode = value);
+  }
+
+  Color get _primaryTextColor =>
+      _darkMode ? Colors.white : const Color(0xFF171A24);
+
+  Color get _secondaryTextColor =>
+      _darkMode ? Colors.white.withValues(alpha: 0.55) : const Color(0xFF697386);
+
+  Color get _mutedTextColor =>
+      _darkMode ? Colors.white.withValues(alpha: 0.38) : const Color(0xFF8992A4);
+
+
+
+  Future<void> _checkServerConnection() async {
+    if (_isDisconnectDialogShowing) return;
+    final connected = await widget.apiService.checkConnection();
+    if (!mounted || connected) return;
+    _showServerDisconnectedDialog();
+  }
+
+  void _showServerDisconnectedDialog() {
+    if (_isDisconnectDialogShowing || !mounted) return;
+    _isDisconnectDialogShowing = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      builder: (dialogContext) {
+        bool reconnecting = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(24),
+              child: GlassCard(
+                padding: const EdgeInsets.all(22),
+                quality: GlassQuality.standard,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _dialogHeader(
+                      Icons.cloud_off_rounded,
+                      const Color(0xFFFF6B6B),
+                      'Server Disconnected',
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'The EquipTrack server cannot be reached. '
+                          'Please make sure the PHP server is running '
+                          'and try reconnecting.',
+                      style: TextStyle(
+                        height: 1.45,
+                        color: _secondaryTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: GlassButton(
+                        onTap: reconnecting
+                            ? () {}
+                            : () {
+                          setDialogState(
+                                () => reconnecting = true,
+                          );
+
+                          widget.apiService.checkConnection().then((connected) {
+                            if (!dialogContext.mounted) return;
+
+                            if (connected) {
+                              _isDisconnectDialogShowing = false;
+                              Navigator.of(dialogContext).pop();
+                              _loadEquipment();
+                            } else {
+                              setDialogState(
+                                    () => reconnecting = false,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Server is still unreachable.',
+                                  ),
+                                ),
+                              );
+                            }
+                          });
+                        },
+                        icon: reconnecting
+                            ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                            : const Icon(
+                          Icons.refresh_rounded,
+                          color: Colors.white,
+                        ),
+                        label: reconnecting
+                            ? 'Reconnecting...'
+                            : 'Reconnect',
+                        style: GlassButtonStyle.prominent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) => _isDisconnectDialogShowing = false);
+  }
+
+  Widget _dialogHeader(
+      IconData icon,
+      Color color,
+      String title,
+      ) {
+    return Row(
+      children: [
+        _circleIcon(icon, color),
+        const SizedBox(width: 13),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _loadEquipment() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final equipment =
-      await widget.apiService.getEquipment();
-
+      final equipment = await widget.apiService.getEquipment();
       if (!mounted) return;
 
       setState(() {
@@ -244,61 +308,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _isLoading = false;
-        _errorMessage =
-        'Unable to load equipment from the server.';
+        _errorMessage = 'Unable to load equipment from the server.';
       });
     }
   }
 
   List<Equipment> get _filteredEquipment {
-    if (_searchQuery.trim().isEmpty) {
-      return _equipment;
-    }
-
-    final query =
-    _searchQuery.toLowerCase();
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return _equipment;
 
     return _equipment.where((item) {
-      return item.name
-          .toLowerCase()
-          .contains(query) ||
-          item.category
-              .toLowerCase()
-              .contains(query) ||
-          item.location
-              .toLowerCase()
-              .contains(query) ||
-          item.status
-              .toLowerCase()
-              .contains(query);
+      return item.name.toLowerCase().contains(q) ||
+          item.category.toLowerCase().contains(q) ||
+          item.location.toLowerCase().contains(q) ||
+          item.status.toLowerCase().contains(q);
     }).toList();
   }
 
-  int get _totalQuantity {
-    return _equipment.fold<int>(
-      0,
-          (total, item) =>
-      total + item.quantity,
-    );
-  }
+  int get _totalQuantity =>
+      _equipment.fold(0, (sum, item) => sum + item.quantity);
 
-  int get _availableCount {
-    return _equipment
-        .where(
-          (item) =>
-      item.status == 'Available',
-    )
-        .length;
-  }
+  int get _availableCount =>
+      _equipment.where((item) => item.status == 'Available').length;
 
-  int get _borrowedCount {
-    return _equipment
-        .where(
-          (item) =>
-      item.status == 'Borrowed',
-    )
-        .length;
-  }
+  int get _borrowedCount =>
+      _equipment.where((item) => item.status == 'Borrowed').length;
 
   Future<void> _createEquipment({
     required String name,
@@ -307,13 +341,10 @@ class _HomeScreenState extends State<HomeScreen> {
     required String location,
     required String status,
   }) async {
-    setState(() {
-      _isCreating = true;
-    });
+    setState(() => _isCreating = true);
 
     try {
-      final response =
-      await widget.apiService.post(
+      final response = await widget.apiService.post(
         'equiptrack/api.php',
         {
           'name': name,
@@ -325,45 +356,31 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (!mounted) return;
-
-      final dynamic decoded =
-      jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
 
       if (response.statusCode < 200 ||
           response.statusCode >= 300 ||
           decoded['success'] != true) {
         throw Exception(
-          decoded['message']?.toString() ??
-              'Failed to create equipment.',
+          decoded['message']?.toString() ?? 'Failed to create equipment.',
         );
       }
 
       Navigator.of(context).pop();
-
       await _loadEquipment();
 
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Equipment added successfully.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isCreating = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Equipment added successfully.',
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _isCreating = false;
-      });
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Failed to add equipment. '
-                'Please check the server connection.',
+            'Failed to add equipment. Please check the server connection.',
           ),
         ),
       );
@@ -392,1006 +409,593 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (!mounted) return;
-
-      final dynamic decoded =
-      jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
 
       if (response.statusCode < 200 ||
           response.statusCode >= 300 ||
           decoded['success'] != true) {
         throw Exception(
-          decoded['message']?.toString() ??
-              'Failed to update equipment.',
+          decoded['message']?.toString() ?? 'Failed to update equipment.',
         );
       }
 
       Navigator.of(context).pop();
-
       await _loadEquipment();
 
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Equipment updated successfully.',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Equipment updated successfully.')),
       );
     } catch (_) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Failed to update equipment. '
-                'Please check the server connection.',
+            'Failed to update equipment. Please check the server connection.',
           ),
         ),
       );
     }
   }
 
-  Future<void> _deleteEquipment(
-      Equipment item,
-      ) async {
+  Future<void> _deleteEquipment(Equipment item) async {
     try {
-      final response =
-      await widget.apiService.delete(
+      final response = await widget.apiService.delete(
         'equiptrack/api.php?id=${item.id}',
       );
 
       if (!mounted) return;
-
-      final dynamic decoded =
-      jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
 
       if (response.statusCode < 200 ||
           response.statusCode >= 300 ||
           decoded['success'] != true) {
         throw Exception(
-          decoded['message']?.toString() ??
-              'Failed to delete equipment.',
+          decoded['message']?.toString() ?? 'Failed to delete equipment.',
         );
       }
 
       await _loadEquipment();
 
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '${item.name} deleted successfully.',
-          ),
+          content: Text('${item.name} deleted successfully.'),
         ),
       );
     } catch (_) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Failed to delete equipment. '
-                'Please check the server connection.',
+            'Failed to delete equipment. Please check the server connection.',
           ),
         ),
       );
     }
   }
 
-  void _confirmDelete(
-      Equipment item,
-      ) {
+  void _confirmDelete(Equipment item) {
     showDialog<void>(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'Delete Equipment?',
-          ),
-          content: Text(
-            'Are you sure you want to delete '
-                '${item.name}?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-              },
-              child: const Text(
-                'Cancel',
-              ),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                const Color(0xFFD94A4A),
-              ),
-              onPressed: () async {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-
-                await _deleteEquipment(
-                  item,
-                );
-              },
-              child: const Text(
-                'Delete',
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showAddEquipment() {
-    final nameController =
-    TextEditingController();
-
-    final quantityController =
-    TextEditingController();
-
-    final locationController =
-    TextEditingController();
-
-    String category = 'Multimedia';
-    String status = 'Available';
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (
-              context,
-              setModalState,
-              ) {
-            return GlassCard(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                20,
-                24,
-                24 +
-                    MediaQuery.of(context)
-                        .viewInsets
-                        .bottom,
-              ),
-              quality: GlassQuality.standard,
-              child:
-              SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: GlassCard(
+            padding: const EdgeInsets.all(22),
+            quality: GlassQuality.standard,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _dialogHeader(
+                  Icons.delete_outline_rounded,
+                  const Color(0xFFFF6B6B),
+                  'Delete Equipment?',
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Are you sure you want to delete ${item.name}?',
+                  style: TextStyle(
+                    color: _secondaryTextColor,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
                   children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration:
-                        BoxDecoration(
-                          color: Colors.white
-                              .withValues(
-                            alpha: 0.18,
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: GlassButton(
+                          onTap: () =>
+                              Navigator.of(dialogContext).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white70,
                           ),
-                          borderRadius:
-                          BorderRadius
-                              .circular(10),
+                          label: 'Cancel',
                         ),
                       ),
                     ),
-
-                    const SizedBox(
-                      height: 24,
-                    ),
-
-                    const Text(
-                      'Add Equipment',
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight:
-                        FontWeight.w800,
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height: 6,
-                    ),
-
-                    Text(
-                      'Create a new equipment record.',
-                      style: TextStyle(
-                        color: Colors.white
-                            .withValues(
-                          alpha: 0.50,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(
-                      height: 24,
-                    ),
-
-                    GlassTextField(
-                      controller: nameController,
-                      enabled: !_isCreating,
-                      placeholder: 'Equipment Name',
-                      prefixIcon: const Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.white70,
-                      ),
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
-
-                    const SizedBox(
-                      height: 14,
-                    ),
-
-                    DropdownButtonFormField<
-                        String>(
-                      initialValue:
-                      category,
-                      decoration:
-                      const InputDecoration(
-                        labelText: 'Category',
-                      ),
-                      items: const [
-                        'Multimedia',
-                        'Audio Equipment',
-                        'Computer',
-                        'Cable',
-                        'Other',
-                      ].map((value) {
-                        return DropdownMenuItem(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged:
-                      _isCreating
-                          ? null
-                          : (value) {
-                        if (value !=
-                            null) {
-                          setModalState(
-                                () {
-                              category =
-                                  value;
-                            },
-                          );
-                        }
-                      },
-                    ),
-
-                    const SizedBox(
-                      height: 14,
-                    ),
-
-                    GlassTextField(
-                      controller: quantityController,
-                      enabled: !_isCreating,
-                      keyboardType: TextInputType.number,
-                      placeholder: 'Quantity',
-                      prefixIcon: const Icon(
-                        Icons.numbers_rounded,
-                        color: Colors.white70,
-                      ),
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
-
-                    const SizedBox(
-                      height: 14,
-                    ),
-
-                    GlassTextField(
-                      controller: locationController,
-                      enabled: !_isCreating,
-                      placeholder: 'Location',
-                      prefixIcon: const Icon(
-                        Icons.location_on_outlined,
-                        color: Colors.white70,
-                      ),
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
-
-                    const SizedBox(
-                      height: 14,
-                    ),
-
-                    DropdownButtonFormField<
-                        String>(
-                      initialValue:
-                      status,
-                      decoration:
-                      const InputDecoration(
-                        labelText: 'Status',
-                      ),
-                      items: const [
-                        'Available',
-                        'Borrowed',
-                        'Maintenance',
-                      ].map((value) {
-                        return DropdownMenuItem(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged:
-                      _isCreating
-                          ? null
-                          : (value) {
-                        if (value !=
-                            null) {
-                          setModalState(
-                                () {
-                              status =
-                                  value;
-                            },
-                          );
-                        }
-                      },
-                    ),
-
-                    const SizedBox(
-                      height: 24,
-                    ),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: FilledButton.icon(
-                        onPressed:
-                        _isCreating
-                            ? null
-                            : () {
-                          final name =
-                          nameController
-                              .text
-                              .trim();
-
-                          final quantity =
-                          int.tryParse(
-                            quantityController
-                                .text
-                                .trim(),
-                          );
-
-                          final location =
-                          locationController
-                              .text
-                              .trim();
-
-                          if (name
-                              .isEmpty ||
-                              quantity ==
-                                  null ||
-                              quantity <=
-                                  0 ||
-                              location
-                                  .isEmpty) {
-                            ScaffoldMessenger
-                                .of(
-                              context,
-                            ).showSnackBar(
-                              const SnackBar(
-                                content:
-                                Text(
-                                  'Please complete all fields.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-
-                          _createEquipment(
-                            name: name,
-                            category:
-                            category,
-                            quantity:
-                            quantity,
-                            location:
-                            location,
-                            status:
-                            status,
-                          );
-                        },
-                        icon: _isCreating
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child:
-                          CircularProgressIndicator(
-                            strokeWidth: 2,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
+                        child: GlassButton(
+                          onTap: () async {
+                            Navigator.of(dialogContext).pop();
+                            await _deleteEquipment(item);
+                          },
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Color(0xFFFF7A7A),
                           ),
-                        )
-                            : const Icon(
-                          Icons
-                              .add_rounded,
-                        ),
-                        label: Text(
-                          _isCreating
-                              ? 'Saving...'
-                              : 'Add Equipment',
-                          style:
-                          const TextStyle(
-                            fontWeight:
-                            FontWeight.w700,
-                          ),
+                          label: 'Delete',
+                          style: GlassButtonStyle.prominent,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            );
-          },
+              ],
+            ),
+          ),
         );
       },
     );
   }
-  void _showEditEquipment(Equipment item) {
-    final nameController =
-    TextEditingController(text: item.name);
 
-    final quantityController =
-    TextEditingController(
-      text: item.quantity.toString(),
-    );
-
-    final locationController =
-    TextEditingController(text: item.location);
-
-    String category = item.category;
-    String status = item.status;
-
-    bool isSaving = false;
-
-    showModalBottomSheet<void>(
+  Future<String?> _pickValue({
+    required String title,
+    required String current,
+    required List<String> options,
+  }) {
+    return showModalBottomSheet<String>(
       context: context,
-      isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      isScrollControlled: true,
       builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (
-              context,
-              setModalState,
-              ) {
-            return GlassCard(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                20,
-                24,
-                24 +
-                    MediaQuery.of(context)
-                        .viewInsets
-                        .bottom,
-              ),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: GlassCard(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               quality: GlassQuality.standard,
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4,
-                        decoration:
-                        BoxDecoration(
-                          color: Colors.white
-                              .withValues(
-                            alpha: 0.18,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _sheetHandle(),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Choose an option',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _secondaryTextColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  ...options.map((option) {
+                    final selected = option == current;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(sheetContext).pop(option),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          width: double.infinity,
+                          height: 54,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0xFF7584FF).withValues(alpha: 0.17)
+                                : Colors.white.withValues(alpha: 0.045),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFF9AA5FF).withValues(alpha: 0.50)
+                                  : Colors.white.withValues(alpha: 0.08),
+                            ),
                           ),
-                          borderRadius:
-                          BorderRadius
-                              .circular(10),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    const Text(
-                      'Edit Equipment',
-                      style: TextStyle(
-                        fontSize: 25,
-                        fontWeight:
-                        FontWeight.w800,
-                      ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    Text(
-                      'Update the equipment record.',
-                      style: TextStyle(
-                        color: Colors.white
-                            .withValues(
-                          alpha: 0.50,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    GlassTextField(
-                      controller: nameController,
-                      enabled: !isSaving,
-                      placeholder: 'Equipment Name',
-                      prefixIcon: const Icon(
-                        Icons.inventory_2_outlined,
-                        color: Colors.white70,
-                      ),
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    DropdownButtonFormField<String>(
-                      initialValue:
-                      category,
-                      decoration:
-                      const InputDecoration(
-                        labelText: 'Category',
-                      ),
-                      items: const [
-                        'Multimedia',
-                        'Audio Equipment',
-                        'Computer',
-                        'Cable',
-                        'Other',
-                      ].map((value) {
-                        return DropdownMenuItem(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (value) {
-                        if (value !=
-                            null) {
-                          setModalState(
-                                () {
-                              category =
-                                  value;
-                            },
-                          );
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    GlassTextField(
-                      controller: quantityController,
-                      enabled: !isSaving,
-                      keyboardType: TextInputType.number,
-                      placeholder: 'Quantity',
-                      prefixIcon: const Icon(
-                        Icons.numbers_rounded,
-                        color: Colors.white70,
-                      ),
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    GlassTextField(
-                      controller: locationController,
-                      enabled: !isSaving,
-                      placeholder: 'Location',
-                      prefixIcon: const Icon(
-                        Icons.location_on_outlined,
-                        color: Colors.white70,
-                      ),
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    DropdownButtonFormField<String>(
-                      initialValue: status,
-                      decoration:
-                      const InputDecoration(
-                        labelText: 'Status',
-                      ),
-                      items: const [
-                        'Available',
-                        'Borrowed',
-                        'Maintenance',
-                      ].map((value) {
-                        return DropdownMenuItem(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (value) {
-                        if (value !=
-                            null) {
-                          setModalState(
-                                () {
-                              status =
-                                  value;
-                            },
-                          );
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: FilledButton.icon(
-                        onPressed: isSaving
-                            ? null
-                            : () async {
-                          final name =
-                          nameController
-                              .text
-                              .trim();
-
-                          final quantity =
-                          int.tryParse(
-                            quantityController
-                                .text
-                                .trim(),
-                          );
-
-                          final location =
-                          locationController
-                              .text
-                              .trim();
-
-                          if (name.isEmpty ||
-                              quantity ==
-                                  null ||
-                              quantity <= 0 ||
-                              location
-                                  .isEmpty) {
-                            ScaffoldMessenger
-                                .of(
-                              context,
-                            ).showSnackBar(
-                              const SnackBar(
-                                content:
-                                Text(
-                                  'Please complete all fields.',
+                          child: Row(
+                            children: [
+                              Icon(
+                                _pickerIcon(option),
+                                size: 20,
+                                color: selected
+                                    ? const Color(0xFFAEB7FF)
+                                    : _secondaryTextColor,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: selected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: _primaryTextColor,
+                                  ),
                                 ),
                               ),
-                            );
-                            return;
-                          }
-
-                          setModalState(
-                                () {
-                              isSaving =
-                              true;
-                            },
-                          );
-
-                          await _updateEquipment(
-                            id: item.id!,
-                            name: name,
-                            category:
-                            category,
-                            quantity:
-                            quantity,
-                            location:
-                            location,
-                            status:
-                            status,
-                          );
-                        },
-                        icon: isSaving
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child:
-                          CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                            : const Icon(
-                          Icons
-                              .save_rounded,
-                        ),
-                        label: Text(
-                          isSaving
-                              ? 'Saving...'
-                              : 'Save Changes',
-                          style:
-                          const TextStyle(
-                            fontWeight:
-                            FontWeight.w700,
+                              Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: selected
+                                      ? const Color(0xFF8290FF)
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: selected
+                                        ? const Color(0xFF8290FF)
+                                        : Colors.white38,
+                                    width: 1.4,
+                                  ),
+                                ),
+                                child: selected
+                                    ? const Icon(
+                                  Icons.check_rounded,
+                                  size: 15,
+                                  color: Colors.white,
+                                )
+                                    : null,
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    );
+                  }),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         );
       },
     );
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'Available':
-        return const Color(0xFF42D392);
-
-      case 'Borrowed':
-        return const Color(0xFFFFB74D);
-
-      case 'Maintenance':
-        return const Color(0xFFFF6B6B);
-
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _equipmentIcon(
-      String category,
-      ) {
-    switch (category) {
-      case 'Multimedia':
+  IconData _pickerIcon(String value) {
+    switch (value.toLowerCase()) {
+      case 'multimedia':
         return Icons.videocam_rounded;
-
-      case 'Audio Equipment':
+      case 'audio equipment':
         return Icons.mic_rounded;
-
-      case 'Computer':
+      case 'computer':
         return Icons.laptop_rounded;
-
-      case 'Cable':
+      case 'cable':
         return Icons.cable_rounded;
-
+      case 'available':
+        return Icons.check_circle_outline_rounded;
+      case 'borrowed':
+        return Icons.schedule_rounded;
+      case 'maintenance':
+        return Icons.build_circle_outlined;
       default:
         return Icons.inventory_2_rounded;
     }
   }
 
+  void _showAddEquipment() {
+    final name = TextEditingController();
+    final quantity = TextEditingController();
+    final location = TextEditingController();
 
+    String category = _categories.first;
+    String status = _statuses.first;
 
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return _formSheet(
+              title: 'Add Equipment',
+              subtitle: 'Create a new equipment record.',
+              nameController: name,
+              quantityController: quantity,
+              locationController: location,
+              category: category,
+              status: status,
+              busy: _isCreating,
+              onCategory: () {
+                _pickValue(
+                  title: 'Select Category',
+                  current: category,
+                  options: _categories,
+                ).then((value) {
+                  if (value != null) {
+                    setModalState(() => category = value);
+                  }
+                });
+              },
+              onStatus: () {
+                _pickValue(
+                  title: 'Select Status',
+                  current: status,
+                  options: _statuses,
+                ).then((value) {
+                  if (value != null) {
+                    setModalState(() => status = value);
+                  }
+                });
+              },
+              onSubmit: () {
+                final n = name.text.trim();
+                final q = int.tryParse(quantity.text.trim());
+                final l = location.text.trim();
 
-  @override
-  Widget build(BuildContext context) {
-    final equipment = _filteredEquipment;
-
-    return GlassPage(
-      background: const _LiquidBackground(),
-      child: Scaffold(
-        extendBody: true,
-        backgroundColor: Colors.transparent,
-        body: SafeArea(
-          child: RefreshIndicator(
-            color: const Color(0xFF8B7CFF),
-            backgroundColor: const Color(0xFF171A29),
-            onRefresh: _loadEquipment,
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 12),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ShaderMask(
-                                shaderCallback: (bounds) =>
-                                    const LinearGradient(
-                                      colors: [
-                                        Colors.white,
-                                        Color(0xFF9EACFF),
-                                        Color(0xFFB58CFF),
-                                      ],
-                                    ).createShader(bounds),
-                                child: const Text(
-                                  'EquipTrack',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 27,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1.1,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                'Campus Equipment Management',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.48),
-                                  letterSpacing: 0.15,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _glassIconButton(
-                          icon: Icons.inventory_2_rounded,
-                          onPressed: _loadEquipment,
-                          size: 48,
-                          iconSize: 21,
-                          accent: true,
-                        ),
-                      ],
+                if (n.isEmpty || q == null || q <= 0 || l.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please complete all fields.'),
                     ),
+                  );
+                  return;
+                }
+
+                _createEquipment(
+                  name: n,
+                  category: category,
+                  quantity: q,
+                  location: l,
+                  status: status,
+                );
+              },
+              submitLabel: 'Add Equipment',
+              submitIcon: Icons.add_rounded,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditEquipment(Equipment item) {
+    final name = TextEditingController(text: item.name);
+    final quantity = TextEditingController(
+      text: item.quantity.toString(),
+    );
+    final location = TextEditingController(text: item.location);
+
+    String category = item.category;
+    String status = item.status;
+    bool saving = false;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return _formSheet(
+              title: 'Edit Equipment',
+              subtitle: 'Update the equipment record.',
+              nameController: name,
+              quantityController: quantity,
+              locationController: location,
+              category: category,
+              status: status,
+              busy: saving,
+              onCategory: () {
+                _pickValue(
+                  title: 'Select Category',
+                  current: category,
+                  options: _categories,
+                ).then((value) {
+                  if (value != null) {
+                    setModalState(() => category = value);
+                  }
+                });
+              },
+              onStatus: () {
+                _pickValue(
+                  title: 'Select Status',
+                  current: status,
+                  options: _statuses,
+                ).then((value) {
+                  if (value != null) {
+                    setModalState(() => status = value);
+                  }
+                });
+              },
+              onSubmit: () {
+                final n = name.text.trim();
+                final q = int.tryParse(quantity.text.trim());
+                final l = location.text.trim();
+
+                if (n.isEmpty || q == null || q <= 0 || l.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please complete all fields.'),
+                    ),
+                  );
+                  return;
+                }
+
+                setModalState(() => saving = true);
+
+                _updateEquipment(
+                  id: item.id!,
+                  name: n,
+                  category: category,
+                  quantity: q,
+                  location: l,
+                  status: status,
+                );
+              },
+              submitLabel: 'Save Changes',
+              submitIcon: Icons.save_rounded,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _formSheet({
+    required String title,
+    required String subtitle,
+    required TextEditingController nameController,
+    required TextEditingController quantityController,
+    required TextEditingController locationController,
+    required String category,
+    required String status,
+    required bool busy,
+    required VoidCallback onCategory,
+    required VoidCallback onStatus,
+    required VoidCallback onSubmit,
+    required String submitLabel,
+    required IconData submitIcon,
+  }) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          14,
+          10,
+          14,
+          14 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: GlassCard(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          quality: GlassQuality.standard,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sheetHandle(),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 10, 22, 16),
-                  sliver: SliverToBoxAdapter(
-                    child: GlassTextField.search(
-                      controller: _searchController,
-                      placeholder: 'Search equipment...',
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        size: 20,
-                        color: Colors.white70,
-                      ),
-                      suffixIcon: const Icon(
-                        Icons.tune_rounded,
-                        size: 18,
-                        color: Colors.white38,
-                      ),
-                      onChanged: (value) {
-                        setState(() => _searchQuery = value);
-                      },
-                      useOwnLayer: true,
-                      quality: GlassQuality.standard,
-                    ),
+                const SizedBox(height: 5),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _secondaryTextColor,
                   ),
                 ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  sliver: SliverToBoxAdapter(
-                    child: _glassPanel(
+                const SizedBox(height: 20),
+                GlassTextField(
+                  controller: nameController,
+                  enabled: !busy,
+                  placeholder: 'Equipment Name',
+                  prefixIcon: const Icon(
+                    Icons.inventory_2_outlined,
+                    color: Colors.white70,
+                  ),
+                  useOwnLayer: true,
+                  quality: GlassQuality.standard,
+                ),
+                const SizedBox(height: 12),
+                _selectionField(
+                  title: 'Category',
+                  value: category,
+                  icon: Icons.category_outlined,
+                  enabled: !busy,
+                  onTap: onCategory,
+                ),
+                const SizedBox(height: 12),
+                GlassTextField(
+                  controller: quantityController,
+                  enabled: !busy,
+                  keyboardType: TextInputType.number,
+                  placeholder: 'Quantity',
+                  prefixIcon: const Icon(
+                    Icons.numbers_rounded,
+                    color: Colors.white70,
+                  ),
+                  useOwnLayer: true,
+                  quality: GlassQuality.standard,
+                ),
+                const SizedBox(height: 12),
+                GlassTextField(
+                  controller: locationController,
+                  enabled: !busy,
+                  placeholder: 'Location',
+                  prefixIcon: const Icon(
+                    Icons.location_on_outlined,
+                    color: Colors.white70,
+                  ),
+                  useOwnLayer: true,
+                  quality: GlassQuality.standard,
+                ),
+                const SizedBox(height: 12),
+                _selectionField(
+                  title: 'Status',
+                  value: status,
+                  icon: Icons.circle_outlined,
+                  enabled: !busy,
+                  onTap: onStatus,
+                ),
+                const SizedBox(height: 18),
+                Center(
+                  child: GestureDetector(
+                    onTap: busy ? () {} : onSubmit,
+                    child: GlassCard(
                       padding: const EdgeInsets.symmetric(
-                        vertical: 17,
-                        horizontal: 8,
+                        horizontal: 22,
+                        vertical: 12,
                       ),
+                      quality: GlassQuality.standard,
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _glassStat(
-                            Icons.inventory_2_outlined,
-                            _totalQuantity.toString(),
-                            'Total',
-                            const Color(0xFF8290FF),
-                          ),
-                          _glassStatDivider(),
-                          _glassStat(
-                            Icons.check_circle_outline_rounded,
-                            _availableCount.toString(),
-                            'Available',
-                            const Color(0xFF35D7A0),
-                          ),
-                          _glassStatDivider(),
-                          _glassStat(
-                            Icons.schedule_rounded,
-                            _borrowedCount.toString(),
-                            'Borrowed',
-                            const Color(0xFFFFB938),
+                          if (busy)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFFB2BAFF),
+                              ),
+                            )
+                          else
+                            Icon(
+                              submitIcon,
+                              size: 18,
+                              color: Color(0xFFB2BAFF),
+                            ),
+                          const SizedBox(width: 8),
+                          Text(
+                            busy ? 'Saving...' : submitLabel,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _primaryTextColor,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 28, 22, 13),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      children: [
-                        const Text(
-                          'Equipment',
-                          style: TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${equipment.length} items',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.40),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (_isLoading)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_errorMessage != null)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(30),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.cloud_off_rounded,
-                              size: 48,
-                              color: Colors.white.withValues(alpha: 0.35),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _errorMessage!,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 18),
-                            GlassButton(
-                              onTap: _loadEquipment,
-                              icon: const Icon(
-                                Icons.refresh_rounded,
-                                color: Colors.white,
-                              ),
-                              label: 'Retry',
-                              style: GlassButtonStyle.prominent,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else if (equipment.isEmpty)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text('No equipment found')),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                              (context, index) => _equipmentCard(equipment[index]),
-                          childCount: equipment.length,
-                        ),
-                      ),
-                    ),
-
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
-                    child: _glassAddButton(),
                   ),
                 ),
               ],
@@ -1399,6 +1003,92 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _selectionField({
+    required String title,
+    required String value,
+    required IconData icon,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        quality: GlassQuality.standard,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 13,
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: _secondaryTextColor, size: 20),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: _secondaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: _secondaryTextColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetHandle() {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 4,
+        decoration: BoxDecoration(
+          color: _darkMode ? Colors.white.withValues(alpha: 0.22) : Colors.black.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
+  Widget _circleIcon(IconData icon, Color color) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Icon(icon, color: color, size: 20),
     );
   }
 
@@ -1434,25 +1124,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _glassStat(
-      IconData icon,
-      String value,
-      String label,
-      Color accent,
-      ) {
+  Widget _glassStat({
+    required IconData icon,
+    required String value,
+    required String label,
+    required Color accent,
+  }) {
     return Expanded(
       child: Column(
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accent.withValues(alpha: 0.13),
-              border: Border.all(color: accent.withValues(alpha: 0.20)),
-            ),
-            child: Icon(icon, size: 16, color: accent),
-          ),
+          _circleIcon(icon, accent),
           const SizedBox(height: 7),
           Text(
             value,
@@ -1463,35 +1144,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            label,
+            'Category',
             style: TextStyle(
               fontSize: 10,
-              color: Colors.white.withValues(alpha: 0.48),
+              color: _secondaryTextColor,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _glassStatDivider() {
-    return Container(
-      width: 1,
-      height: 68,
-      color: Colors.white.withValues(alpha: 0.10),
-    );
-  }
-
-  Widget _glassAddButton() {
-    return SafeArea(
-      child: SizedBox(
-        height: 54,
-        child: GlassButton(
-          onTap: _showAddEquipment,
-          icon: const Icon(Icons.add_rounded, size: 22, color: Colors.white),
-          label: 'Add Equipment',
-          style: GlassButtonStyle.prominent,
-        ),
       ),
     );
   }
@@ -1501,10 +1160,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 13),
-      child: GestureDetector(
-        onTap: () => _showEditEquipment(item),
-        child: _glassPanel(
-          padding: const EdgeInsets.all(13),
+      child: GlassCard(
+        padding: const EdgeInsets.all(13),
+        quality: GlassQuality.standard,
+        child: InkWell(
+          onTap: () => _showEditEquipment(item),
+          borderRadius: BorderRadius.circular(20),
           child: Row(
             children: [
               Container(
@@ -1522,7 +1183,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6374FF).withValues(alpha: 0.22),
+                      color: const Color(0xFF6374FF)
+                          .withValues(alpha: 0.22),
                       blurRadius: 18,
                       spreadRadius: -5,
                     ),
@@ -1607,50 +1269,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(width: 7),
               Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: statusColor.withValues(alpha: 0.16),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: statusColor.withValues(alpha: 0.5),
-                                blurRadius: 5,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          item.status,
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                            color: statusColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _statusPill(item.status, statusColor),
                   const SizedBox(height: 8),
                   GlassIconButton(
                     icon: Icon(
@@ -1675,5 +1296,402 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _statusPill(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.5),
+                  blurRadius: 5,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Available':
+        return const Color(0xFF42D392);
+      case 'Borrowed':
+        return const Color(0xFFFFB74D);
+      case 'Maintenance':
+        return const Color(0xFFFF6B6B);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _equipmentIcon(String category) {
+    switch (category) {
+      case 'Multimedia':
+        return Icons.videocam_rounded;
+      case 'Audio Equipment':
+        return Icons.mic_rounded;
+      case 'Computer':
+        return Icons.laptop_rounded;
+      case 'Cable':
+        return Icons.cable_rounded;
+      default:
+        return Icons.inventory_2_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ThemeData(
+      useMaterial3: true,
+      brightness: _darkMode ? Brightness.dark : Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF7584FF),
+        brightness: _darkMode ? Brightness.dark : Brightness.light,
+      ),
+      scaffoldBackgroundColor: Colors.transparent,
+    );
+
+    return Theme(
+      data: theme,
+      child: GlassPage(
+        background: _LiquidBackground(darkMode: _darkMode),
+        child: Scaffold(
+          extendBody: true,
+          backgroundColor: Colors.transparent,
+          body: IndexedStack(
+            index: _selectedTab,
+            children: [
+              _buildHomeContent(),
+              SettingsScreen(
+                apiService: widget.apiService,
+                autoRefresh: _autoRefresh,
+                darkMode: _darkMode,
+                onAutoRefreshChanged: _setAutoRefresh,
+                onDarkModeChanged: _setDarkMode,
+                onTestConnection: widget.apiService.checkConnection,
+              ),
+            ],
+          ),
+          bottomNavigationBar: _buildBottomNavigationBar(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeContent() {
+    final equipment = _filteredEquipment;
+
+    return SafeArea(
+      child: RefreshIndicator(
+        color: const Color(0xFF8B7CFF),
+        backgroundColor: const Color(0xFF171A29),
+        onRefresh: _loadEquipment,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ShaderMask(
+                        shaderCallback: (bounds) =>
+                            const LinearGradient(
+                              colors: [
+                                Colors.white,
+                                Color(0xFF9EACFF),
+                                Color(0xFFB58CFF),
+                              ],
+                            ).createShader(bounds),
+                        child: const Text(
+                          'EquipTrack',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -1.1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Campus Equipment Management',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _secondaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _glassIconButton(
+                  icon: Icons.refresh_rounded,
+                  onPressed: _loadEquipment,
+                  size: 48,
+                  iconSize: 21,
+                  accent: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            GlassTextField.search(
+              controller: _searchController,
+              placeholder: 'Search equipment...',
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                size: 20,
+                color: Colors.white70,
+              ),
+              suffixIcon: const Icon(
+                Icons.tune_rounded,
+                size: 18,
+                color: Colors.white38,
+              ),
+              onChanged: (value) {
+                setState(() => _searchQuery = value);
+              },
+              useOwnLayer: true,
+              quality: GlassQuality.standard,
+            ),
+            const SizedBox(height: 14),
+            _glassPanel(
+              padding: const EdgeInsets.symmetric(
+                vertical: 17,
+                horizontal: 8,
+              ),
+              child: Row(
+                children: [
+                  _glassStat(
+                    icon: Icons.inventory_2_outlined,
+                    value: _totalQuantity.toString(),
+                    label: 'Total',
+                    accent: const Color(0xFF8290FF),
+                  ),
+                  _glassStatDivider(),
+                  _glassStat(
+                    icon: Icons.check_circle_outline_rounded,
+                    value: _availableCount.toString(),
+                    label: 'Available',
+                    accent: const Color(0xFF35D7A0),
+                  ),
+                  _glassStatDivider(),
+                  _glassStat(
+                    icon: Icons.schedule_rounded,
+                    value: _borrowedCount.toString(),
+                    label: 'Borrowed',
+                    accent: const Color(0xFFFFB938),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 26),
+            Row(
+              children: [
+                Text(
+                  'Equipment',
+                  style: TextStyle(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${equipment.length} items',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: _mutedTextColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 13),
+            if (_isLoading)
+              const SizedBox(
+                height: 250,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF8290FF),
+                  ),
+                ),
+              )
+            else if (_errorMessage != null)
+              _glassPanel(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  children: [
+                    _circleIcon(
+                      Icons.cloud_off_rounded,
+                      const Color(0xFFFF6B6B),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _secondaryTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    _compactGlassAction(
+                      icon: Icons.refresh_rounded,
+                      label: 'Retry',
+                      onTap: _loadEquipment,
+                    ),
+                  ],
+                ),
+              )
+            else if (equipment.isEmpty)
+                _glassPanel(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    children: [
+                      _circleIcon(
+                        Icons.inventory_2_outlined,
+                        const Color(0xFF8290FF),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'No equipment found',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: _primaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _searchQuery.isEmpty
+                            ? 'Add your first equipment record.'
+                            : 'Try a different search term.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _secondaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ...equipment.map(_equipmentCard),
+            const SizedBox(height: 8),
+            _glassAddButton(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      child: GlassTabBar.bottom(
+        selectedIndex: _selectedTab,
+        onTabSelected: (index) {
+          setState(() {
+            _selectedTab = index;
+          });
+        },
+        tabs: const [
+          GlassTab(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          GlassTab(
+            icon: Icon(Icons.settings_rounded),
+            label: 'Settings',
+          ),
+        ],
+        selectedIconColor: Color(0xFFB2BAFF),
+        selectedLabelColor: Colors.white,
+        unselectedIconColor: Colors.white,
+        unselectedLabelColor: Colors.white54,
+      ),
+    );
+  }
+
+  Widget _glassAddButton() {
+    return Align(
+      alignment: Alignment.center,
+      child: _compactGlassAction(
+        icon: Icons.add_rounded,
+        label: 'Add Equipment',
+        onTap: _showAddEquipment,
+      ),
+    );
+  }
+
+  Widget _compactGlassAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 17,
+          vertical: 11,
+        ),
+        quality: GlassQuality.standard,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 19,
+              color: const Color(0xFFB2BAFF),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _glassStatDivider() {
+    return Container(
+      width: 1,
+      height: 68,
+      color: Colors.white.withValues(alpha: 0.10),
+    );
+  }
 }
